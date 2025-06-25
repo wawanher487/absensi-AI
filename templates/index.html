@@ -46,6 +46,9 @@
             <div id="training" class="tab-content active">
                 <div class="controls-wrapper">
                     <div class="user-selector">
+                        <label for="user-search-input">Cari User:</label>
+                        <input type="text" id="user-search-input" class="search-input" placeholder="Ketik untuk mencari nama user...">
+
                         <label for="user-dropdown">Pilih User untuk Training:</label>
                         <select id="user-dropdown">
                             <option value="" disabled selected>-- Pilih Nama User --</option>
@@ -109,6 +112,7 @@
         const thumbnailGallery = document.getElementById('thumbnail-gallery');
         const loadingOverlay = document.getElementById('loading-overlay');
         const trainButton = document.getElementById('train-button-js');
+        const searchInput = document.getElementById('user-search-input');
 
         let testInterval = null;
         let processingFrame = false;
@@ -196,6 +200,27 @@
                 identityBox.classList.add('is-hidden');
             }
         }
+
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const options = userDropdown.options;
+            for (let i = 0; i < options.length; i++) {
+                const option = options[i];
+                if (option.value === "") {
+                    option.style.display = '';
+                    continue;
+                }
+                const optionText = option.textContent.toLowerCase();
+                if (optionText.includes(searchTerm)) {
+                    option.style.display = '';
+                } else {
+                    option.style.display = 'none';
+                }
+            }
+            userDropdown.selectedIndex = 0;
+            captureButton.disabled = true;
+            galleryArea.classList.add('is-hidden');
+        });
 
         userDropdown.addEventListener('change', function() {
             captureButton.disabled = !this.value;

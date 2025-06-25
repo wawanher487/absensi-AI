@@ -50,3 +50,43 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--background-co
 .loading-overlay p { max-width: 300px; text-align: center; }
 .spinner { border: 8px solid #f3f3f3; border-top: 8px solid var(--primary-color); border-radius: 50%; width: 60px; height: 60px; animation: spin 1.5s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Tambahkan di akhir file style.css */
+
+/* Penataan untuk Kontrol Training */
+.controls-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem; /* Beri sedikit jarak antar elemen kontrol */
+}
+
+/* Penataan untuk blok user selector */
+.user-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* Jarak antara label dan input/select */
+}
+.user-selector label {
+    font-weight: 500;
+    color: var(--dark-color);
+}
+
+/* Penataan untuk input pencarian baru */
+.search-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: 'Poppins', sans-serif;
+}
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* Atur ulang label dropdown agar tidak terlalu menonjol setelah ada label search */
+#user-dropdown + label, label[for="user-dropdown"] {
+    margin-top: 0.5rem;
+}
