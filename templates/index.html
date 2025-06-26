@@ -156,20 +156,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function getCurrentLocation() {
-        return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                reject(new Error("Geolocation tidak didukung oleh browser ini."));
-            } else {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => resolve(position.coords),
-                    (error) => reject(new Error(`Gagal mendapatkan lokasi: ${error.message}`)),
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                );
-            }
-        });
-    }
-
     async function processFrameForTest() {
         if (processingFrame || video.paused || video.ended) return;
         processingFrame = true;
@@ -177,7 +163,8 @@ document.addEventListener('DOMContentLoaded', function() {
         tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
         const imageData = tempCanvas.toDataURL('image/jpeg', 0.8);
         try {
-            const coords = await getCurrentLocation();
+            // Geolocation is disabled, send default values
+            const coords = { latitude: 0.0, longitude: 0.0 };
             const response = await fetch('/recognize_frame', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -189,9 +176,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error("Error during frame processing:", error);
             showToast(error.message, 'error');
-            if (error.message.includes("Geolocation") || error.message.includes("lokasi")) {
-                if (testInterval) { clearInterval(testInterval); testInterval = null; }
-            }
         } finally {
             processingFrame = false;
         }
@@ -281,6 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
             countdownInterval = setInterval(() => {
                 if (estimatedSeconds <= 0) {
                     countdownTimer.textContent = 'Hampir selesai...';
+                    clearInterval(countdownInterval);
                     return;
                 }
                 const minutes = Math.floor(estimatedSeconds / 60);
