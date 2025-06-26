@@ -17,6 +17,10 @@ STATIC_USERS_PATH = os.path.join(BASE_DIR, 'static_users.json')
 API_URL = "https://presensi-api.lskk.co.id/api/v1/user/public?id-institution=CMb80a&isDeleted=false"
 GUID_INSTITUTION = "CMb80a"
 
+#DATABASE CONFIGURATION
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/") 
+MONGO_DB_NAME = "presensi_ai_db"
+
 # --- FTP Server Configuration ---
 FTP_HOST = "ftp5.pptik.id"
 FTP_PORT = 2121

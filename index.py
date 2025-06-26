@@ -13,7 +13,7 @@ import threading
 # --- Local Module Imports ---
 import config
 from utils import setup_logging, get_and_map_users_from_api
-from services import ftp_service, rmq_service
+from services import ftp_service, rmq_service, db_service 
 from analysis import face_analyzer
 
 # --- Initial Setup ---
@@ -21,6 +21,7 @@ setup_logging()
 logging.info("Flask application starting...")
 logging.info(f"Application running on port {config.APP_PORT}")
 app = Flask(__name__)
+
 # --- Load User Data and Models ---
 user_details_map = get_and_map_users_from_api()
 face_analyzer.load_models()
