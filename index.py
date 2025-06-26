@@ -17,11 +17,16 @@ from utils import setup_logging, get_and_map_users_from_api
 from services import ftp_service, rmq_service, db_service 
 from analysis import face_analyzer
 
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 # --- Initial Setup ---
 setup_logging()
 logging.info("Flask application starting...")
 app = Flask(__name__)
 
+app.wsgi_app = ProxyFix(
+    app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+)
 # --- Load User Data and Models ---
 user_details_map = get_and_map_users_from_api()
 face_analyzer.load_models()
@@ -169,11 +174,12 @@ def recognize_frame():
             logging.info(f"Attempting to upload '{remote_filename}' to FTP...")
             if ftp_service.upload_to_ftp(image_bytes_for_upload, remote_filename):
                 logging.info(f"FTP STATUS: SUCCESS uploading '{remote_filename}'.")
-                image_url = f"{remote_filename}"
+                image_url = f"{config.FTP_BASE_URL}{config.FTP_FOLDER}/{remote_filename}"
+                image_url_db = f"{remote_filename}"
                 
                 # Menyimpan hasil deteksi ke MongoDB
                 logging.info(f"Saving detection for '{person.get('name')}' to database...")
-                db_service.save_detection_history(person, image_url)
+                db_service.save_detection_history(person, image_url_db)
 
                 # Mengirim pesan ke RMQ #1 (Presensi)
                 presence_payload = rmq_service.create_presence_payload(
