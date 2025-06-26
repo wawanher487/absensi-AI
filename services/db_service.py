@@ -35,7 +35,7 @@ def save_detection_history(person_data: dict, image_url: str):
         return
 
     try:
-        history_collection = db.presensi_ai
+        history_collection = db.phistory_ai
 
         # Mapping data dari deteksi ke skema HistoryAi
         fatigue_level = 1 if person_data.get('fatigue') == 'Drowsy' else 0
