@@ -1,9 +1,10 @@
 import logging
 import requests
+import json
 import config
 
 def setup_logging():
-    """Configures the root logger for the application."""
+    """Mengonfigurasi logger root untuk aplikasi."""
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
@@ -12,27 +13,58 @@ def setup_logging():
 
 def get_and_map_users_from_api():
     """
-    Fetches user data from the configured API and maps it by a unique identifier.
-    The unique identifier is 'name_guid' for easy lookup after face recognition.
+    [DIUBAH] Mengambil data pengguna dari API dengan fallback ke file statis.
+    - Mencoba mengambil dari API terlebih dahulu.
+    - Jika berhasil, simpan data ke file statis untuk penggunaan di masa mendatang.
+    - Jika API gagal, coba muat dari file statis.
     """
-    logging.info("Fetching and mapping user details from API...")
-    user_details_map = {}
+    # 1. Coba ambil dari API
+    logging.info("Mencoba mengambil data pengguna dari API...")
     try:
-        # Set a timeout for the request to prevent indefinite hanging.
-        response = requests.get(config.API_URL, timeout=15)
-        # Raise an exception for bad status codes (4xx or 5xx).
-        response.raise_for_status()
-        users = response.json().get('data', [])
+        response = requests.get(config.API_URL, timeout=10)
+        response.raise_for_status()  # Akan memunculkan error untuk status 4xx/5xx
+        users_list = response.json().get('data', [])
 
-        for user in users:
-            # Create a unique key for each user.
-            user_key = f"{user['name'].replace(' ', '_')}_{user['guid']}"
-            user_details_map[user_key] = user
+        if users_list:
+            logging.info(f"Berhasil mengambil {len(users_list)} pengguna dari API.")
+            
+            # Simpan data baru ke file statis. Pastikan STATIC_USERS_PATH ada di config.py
+            try:
+                with open(config.STATIC_USERS_PATH, 'w', encoding='utf-8') as f:
+                    json.dump(users_list, f, ensure_ascii=False, indent=4)
+                logging.info(f"Berhasil menyimpan data pengguna ke file statis: {config.STATIC_USERS_PATH}")
+            except IOError as e:
+                logging.error(f"Tidak dapat menulis ke file pengguna statis: {e}")
 
-        logging.info(f"Successfully fetched and mapped {len(user_details_map)} users.")
-        return user_details_map
+            # Petakan data dan kembalikan hasilnya
+            user_map = {}
+            for user in users_list:
+                user_key = f"{user['name'].replace(' ', '_')}_{user['guid']}"
+                user_map[user_key] = user
+            return user_map
+        else:
+            logging.warning("API tidak mengembalikan data pengguna.")
 
     except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to fetch user data from API: {e}")
-        # Return an empty map if the API call fails, so the app can still run.
+        logging.error(f"Gagal mengambil data pengguna dari API: {e}. Mencoba memuat dari file statis.")
+    
+    # 2. Jika API gagal atau tidak mengembalikan apa pun, gunakan file statis sebagai fallback
+    logging.info(f"Menggunakan fallback ke file pengguna statis: {config.STATIC_USERS_PATH}")
+    try:
+        with open(config.STATIC_USERS_PATH, 'r', encoding='utf-8') as f:
+            users_list = json.load(f)
+        
+        logging.info(f"Berhasil memuat {len(users_list)} pengguna dari file statis.")
+        
+        user_map = {}
+        for user in users_list:
+            user_key = f"{user['name'].replace(' ', '_')}_{user['guid']}"
+            user_map[user_key] = user
+        return user_map
+
+    except FileNotFoundError:
+        logging.error("File pengguna statis tidak ditemukan. Tidak ada pengguna yang dapat dimuat.")
+        return {}
+    except (json.JSONDecodeError, IOError) as e:
+        logging.error(f"Gagal membaca atau mem-parsing file pengguna statis: {e}")
         return {}
