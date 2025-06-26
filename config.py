@@ -18,8 +18,8 @@ API_URL = "https://presensi-api.lskk.co.id/api/v1/user/public?id-institution=CMb
 GUID_INSTITUTION = "CMb80a"
 
 #DATABASE CONFIGURATION
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://wh891706:Jz1X5pslUXxCBw9s@cluster0.vt4xkx8.mongodb.net/presensi_ai?retryWrites=true&w=majority") 
-MONGO_DB_NAME = "presensi_ai"
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://naungilmu:n4un97!2@database2.pptik.id/naungilmu") 
+MONGO_DB_NAME = "naungilmu"
 
 # --- FTP Server Configuration ---
 FTP_HOST = "ftp5.pptik.id"

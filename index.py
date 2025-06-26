@@ -13,13 +13,13 @@ import threading
 # --- Local Module Imports ---
 import config
 from utils import setup_logging, get_and_map_users_from_api
+# Impor semua layanan yang diperlukan, termasuk db_service
 from services import ftp_service, rmq_service, db_service 
 from analysis import face_analyzer
 
 # --- Initial Setup ---
 setup_logging()
 logging.info("Flask application starting...")
-logging.info(f"Application running on port {config.APP_PORT}")
 app = Flask(__name__)
 
 # --- Load User Data and Models ---
@@ -34,13 +34,11 @@ training_lock = threading.Lock()
 
 @app.route('/')
 def index():
-    """Create By Asep Trisna Setiawan"""
     """Renders the main page with a list of users."""
-    print("Create By Asep Trisna Setiawan")
-    global user_details_map # Diperlukan untuk memodifikasi variabel global
+    global user_details_map
     logging.info(f"Request for main page from {request.remote_addr}")
 
-    # [PERBAIKAN] Jika daftar pengguna kosong (misal, gagal saat startup), coba ambil lagi.
+    # Jika daftar pengguna kosong, coba ambil lagi
     if not user_details_map:
         logging.warning("User map is empty. Attempting to re-fetch from API...")
         user_details_map = get_and_map_users_from_api()
@@ -55,7 +53,6 @@ def index():
 def capture():
     """
     Handles the capturing and saving of new face images for training.
-    Expects a JSON payload with 'guid', 'name', and 'image' data.
     """
     try:
         data = request.get_json()
@@ -160,7 +157,7 @@ def recognize_frame():
         cooldown_period = config.DETECTION_COOLDOWN_SECONDS
 
         if (current_time - last_detection_timestamps.get(user_guid, 0)) > cooldown_period:
-            logging.info(f"User '{person.get('name')}' detected. Cooldown passed. Processing presence...")
+            logging.info(f"User '{person.get('name')}' detected. Cooldown passed. Processing...")
             last_detection_timestamps[user_guid] = current_time
 
             _, buffer = cv2.imencode('.jpg', img)
@@ -172,9 +169,13 @@ def recognize_frame():
             logging.info(f"Attempting to upload '{remote_filename}' to FTP...")
             if ftp_service.upload_to_ftp(image_bytes_for_upload, remote_filename):
                 logging.info(f"FTP STATUS: SUCCESS uploading '{remote_filename}'.")
-
-                # --- Kirim ke RMQ #1 (Presensi) ---
                 image_url = f"{config.FTP_BASE_URL}{config.FTP_FOLDER}/{remote_filename}"
+                
+                # Menyimpan hasil deteksi ke MongoDB
+                logging.info(f"Saving detection for '{person.get('name')}' to database...")
+                db_service.save_detection_history(person, image_url)
+
+                # Mengirim pesan ke RMQ #1 (Presensi)
                 presence_payload = rmq_service.create_presence_payload(
                     user_guid=user_guid,
                     user_name=person.get('name', 'N/A'),
@@ -182,28 +183,24 @@ def recognize_frame():
                     latitude=latitude,
                     longitude=longitude
                 )
-                
-                logging.info(f"Attempting to publish presence message to RMQ #1...")
                 if rmq_service.publish_to_rmq(presence_payload):
                     logging.info("RMQ #1 STATUS: SUCCESS sending presence message.")
                     results[0]['presence_sent'] = True
                 else:
                     logging.error("RMQ #1 STATUS: FAILED to send presence message.")
                 
-                # --- Kirim ke RMQ #2 (Notifikasi File) ---
+                # Mengirim pesan ke RMQ #2 (Notifikasi File)
                 notification_payload = rmq_service.create_file_notification_payload(
                     filename=remote_filename
                 )
-
-                logging.info(f"Attempting to publish file notification to RMQ #2...")
                 if rmq_service.publish_file_notification(notification_payload):
                     logging.info("RMQ #2 STATUS: SUCCESS sending file notification.")
                 else:
                     logging.error("RMQ #2 STATUS: FAILED to send file notification.")
             else:
-                logging.error(f"FTP STATUS: FAILED to upload '{remote_filename}'. RMQ messages will not be sent.")
+                logging.error(f"FTP STATUS: FAILED. DB and RMQ messages will not be sent.")
         else:
-            logging.info(f"User '{person.get('name')}' detected. Cooldown active. Skipping presence processing.")
+            logging.info(f"User '{person.get('name')}' detected. Cooldown active. Skipping.")
 
     return jsonify(results)
 
@@ -230,4 +227,5 @@ def get_training_stats():
 
 # --- Main Execution ---
 if __name__ == '__main__':
+    # Pastikan untuk menggunakan server produksi seperti Gunicorn atau Waitress saat deploy
     app.run(host='0.0.0.0', port=config.APP_PORT, debug=False, threaded=True)

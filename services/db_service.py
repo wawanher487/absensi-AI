@@ -19,7 +19,6 @@ try:
     logging.info(f"Successfully connected to MongoDB. Database: '{config.MONGO_DB_NAME}'")
 except ConnectionFailure as e:
     logging.critical(f"MongoDB connection failed: {e}", exc_info=True)
-    # Aplikasi tidak bisa berjalan tanpa database, bisa di-handle lebih lanjut jika perlu
     db = None 
 
 def save_detection_history(person_data: dict, image_url: str):
@@ -30,12 +29,13 @@ def save_detection_history(person_data: dict, image_url: str):
         person_data: A dictionary containing the detected person's information.
         image_url: The URL of the captured image stored on FTP.
     """
-    if not db:
+    # [PERBAIKAN] Mengubah cara memeriksa koneksi database
+    if db is None:
         logging.error("Database not connected. Cannot save history.")
         return
 
     try:
-        history_collection = "history_ai"
+        history_collection = db.presensi_ai
 
         # Mapping data dari deteksi ke skema HistoryAi
         fatigue_level = 1 if person_data.get('fatigue') == 'Drowsy' else 0
@@ -60,8 +60,6 @@ def save_detection_history(person_data: dict, image_url: str):
             'jam_keluar_actual': None,
             'jumlah_telat': 0,
             'total_jam_telat': 0,
-            # Timestamps akan di-handle oleh Mongoose jika menggunakan NestJS,
-            # tetapi kita bisa menambahkannya secara manual di sini jika perlu.
             'createdAt': datetime.datetime.now(datetime.timezone.utc),
             'updatedAt': datetime.datetime.now(datetime.timezone.utc),
         }
