@@ -11,6 +11,7 @@ MODEL_PATH = os.path.join(BASE_DIR, 'trained_model.clf')
 LABELS_PATH = os.path.join(BASE_DIR, 'labels.pkl')
 DLIB_SHAPE_PREDICTOR = os.path.join(BASE_DIR, 'shape_predictor_68_face_landmarks.dat')
 EMOTION_MODEL_PATH = os.path.join(BASE_DIR, 'emotion_model.h5')
+STATIC_USERS_PATH = os.path.join(BASE_DIR, 'static_users.json')
 
 # --- External Services API ---
 API_URL = "https://presensi-api.lskk.co.id/api/v1/user/public?id-institution=CMb80a&isDeleted=false"

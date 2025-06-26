@@ -33,6 +33,7 @@ training_lock = threading.Lock()
 
 @app.route('/')
 def index():
+    """Create By Asep Trisna Setiawan"""
     """Renders the main page with a list of users."""
     global user_details_map # Diperlukan untuk memodifikasi variabel global
     logging.info(f"Request for main page from {request.remote_addr}")
