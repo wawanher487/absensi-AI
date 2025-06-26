@@ -73,3 +73,58 @@ def create_presence_payload(user_guid: str, user_name: str, image_url: str, lati
             "hour": datetime.datetime.now().strftime("%H.%M")
         }
     }
+
+
+# --- [FUNGSI BARU] ---
+
+def publish_file_notification(payload: dict) -> bool:
+    """
+    Publishes a file notification payload to the second RabbitMQ queue.
+    """
+    connection = None
+    try:
+        print("RMQ2_URI:", config.RMQ2_URI)  # Debugging line to check RMQ2 URI
+        params = pika.URLParameters(config.RMQ2_URI)
+        connection = pika.BlockingConnection(params)
+        channel = connection.channel()
+
+        # Declare the queue. Assuming it should be durable for notifications.
+        # channel.queue_declare(queue=config.RMQ2_QUEUE, durable=False)
+        queue_args = {
+            "x-message-ttl": 60000
+        }
+        channel.queue_declare(
+            queue=config.RMQ_QUEUE, 
+            durable=False, # Diubah dari True menjadi False agar sesuai dengan server
+            arguments=queue_args
+        )
+
+        message_body = json.dumps(payload)
+
+        # message_body = json.dumps(payload)
+
+        channel.basic_publish(
+            exchange='',
+            routing_key=config.RMQ2_QUEUE,
+            body=message_body,
+            # properties=pika.BasicProperties(delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE)
+            properties=pika.BasicProperties(delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE)
+        )
+        logging.info(f"Successfully published file notification to RMQ queue '{config.RMQ2_QUEUE}'.")
+        return True
+    except Exception as e:
+        logging.error(f"RMQ (Notification) PUBLISH FAILED: {e}", exc_info=True)
+        return False
+    finally:
+        if connection and connection.is_open:
+            connection.close()
+
+def create_file_notification_payload(filename: str) -> dict:
+    """
+    Creates a standardized payload for a file notification report.
+    """
+    return {
+        "filename": filename,
+        "guid_camera": config.CAMERA_GUID,
+        "capture_time": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }

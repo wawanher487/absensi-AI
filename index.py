@@ -11,7 +11,6 @@ from werkzeug.exceptions import BadRequest
 import threading
 
 # --- Local Module Imports ---
-# These modules contain the refactored logic for specific functionalities.
 import config
 from utils import setup_logging, get_and_map_users_from_api
 from services import ftp_service, rmq_service
@@ -23,17 +22,12 @@ logging.info("Flask application starting...")
 app = Flask(__name__)
 
 # --- Load User Data and Models ---
-# The user map is fetched once at startup.
 user_details_map = get_and_map_users_from_api()
-# Models are loaded by the face_analyzer module upon its initialization.
 face_analyzer.load_models()
 
 # --- State Management ---
-# Keeps track of the last detection time for each user to implement a cooldown.
 last_detection_timestamps = {}
-# [DIUBAH] Lock to prevent concurrent training requests.
 training_lock = threading.Lock()
-
 
 # --- Flask Routes ---
 
@@ -41,7 +35,6 @@ training_lock = threading.Lock()
 def index():
     """Renders the main page with a list of users."""
     logging.info(f"Request for main page from {request.remote_addr}")
-    # Convert the user map values to a list for the template.
     users = list(user_details_map.values())
     return render_template('index.html', users=users)
 
@@ -60,13 +53,11 @@ def capture():
         user_name = data['name']
         image_data_b64 = data['image'].split(',')[1]
 
-        # Define the folder for the user's dataset.
         user_folder = os.path.join(config.DATASET_PATH, f"{user_name.replace(' ', '_')}_{user_guid}")
         if not os.path.exists(user_folder):
             os.makedirs(user_folder)
             logging.info(f"Created new dataset folder: {user_folder}")
 
-        # Decode the base64 image and save it to the user's folder.
         img_bytes = base64.b64decode(image_data_b64)
         img_np = np.frombuffer(img_bytes, np.uint8)
         img = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
@@ -91,20 +82,18 @@ def capture():
 @app.route('/train', methods=['GET'])
 def train_model():
     """
-    [DIUBAH] Initiates the training process synchronously.
+    Initiates the training process synchronously.
     Handles concurrent requests by locking the process.
     """
-    # Try to acquire the lock without blocking. If it's already locked, another training is in progress.
     if not training_lock.acquire(blocking=False):
         logging.warning("Training request received while another training is in progress.")
         return jsonify({
             'status': 'error',
             'message': 'Proses training sedang berjalan. Silakan coba beberapa saat lagi.'
-        }), 409  # 409 Conflict
+        }), 409
 
     logging.info("Training process initiated by user. Lock acquired.")
     try:
-        # The training logic is called directly and waits for completion.
         success, message = face_analyzer.train_model()
         if success:
             logging.info("Training completed and model reloaded successfully!")
@@ -116,7 +105,6 @@ def train_model():
         logging.critical(f"An unexpected error occurred during training: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Terjadi kesalahan internal saat training.'}), 500
     finally:
-        # [PENTING] Ensure the lock is released when the process is done.
         training_lock.release()
         logging.info("Training process finished. Lock released.")
 
@@ -172,24 +160,37 @@ def recognize_frame():
             if ftp_service.upload_to_ftp(image_bytes_for_upload, remote_filename):
                 logging.info(f"FTP STATUS: SUCCESS uploading '{remote_filename}'.")
 
+                # [DIUBAH] Implementasi pengiriman ke dua antrian RMQ
+                
+                # --- Kirim ke RMQ #1 (Presensi) ---
                 image_url = f"{config.FTP_BASE_URL}{config.FTP_FOLDER}/{remote_filename}"
-                payload = rmq_service.create_presence_payload(
+                presence_payload = rmq_service.create_presence_payload(
                     user_guid=user_guid,
                     user_name=person.get('name', 'N/A'),
                     image_url=image_url,
                     latitude=latitude,
                     longitude=longitude
                 )
-
-                logging.info(f"Payload to be sent to RMQ:\n{json.dumps(payload, indent=2)}")
-                logging.info("Attempting to publish message to RMQ...")
-                if rmq_service.publish_to_rmq(payload):
-                    logging.info("RMQ STATUS: SUCCESS sending message.")
+                
+                logging.info(f"Attempting to publish presence message to RMQ #1...")
+                if rmq_service.publish_to_rmq(presence_payload):
+                    logging.info("RMQ #1 STATUS: SUCCESS sending presence message.")
                     results[0]['presence_sent'] = True
                 else:
-                    logging.error("RMQ STATUS: FAILED to send message.")
+                    logging.error("RMQ #1 STATUS: FAILED to send presence message.")
+                
+                # --- Kirim ke RMQ #2 (Notifikasi File) ---
+                notification_payload = rmq_service.create_file_notification_payload(
+                    filename=remote_filename
+                )
+
+                logging.info(f"Attempting to publish file notification to RMQ #2...")
+                if rmq_service.publish_file_notification(notification_payload):
+                    logging.info("RMQ #2 STATUS: SUCCESS sending file notification.")
+                else:
+                    logging.error("RMQ #2 STATUS: FAILED to send file notification.")
             else:
-                logging.error(f"FTP STATUS: FAILED to upload '{remote_filename}'. RMQ message will not be sent.")
+                logging.error(f"FTP STATUS: FAILED to upload '{remote_filename}'. RMQ messages will not be sent.")
         else:
             logging.info(f"User '{person.get('name')}' detected. Cooldown active. Skipping presence processing.")
 
@@ -219,4 +220,3 @@ def get_training_stats():
 # --- Main Execution ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=config.APP_PORT, debug=False, threaded=True)
-

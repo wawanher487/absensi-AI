@@ -36,6 +36,21 @@ RMQ_QUEUE = "presence-2024"
 # Cooldown in seconds between sending presence data for the same person.
 DETECTION_COOLDOWN_SECONDS = 60
 
+# [PERBAIKAN] RMQ #2 - For AI Presence Notification - Kredensial & Konfigurasi diperbarui
+RMQ2_USER = "ai-presensi"
+RMQ2_PASS = "BtRD6f9oG29c"
+RMQ2_HOST = "rmq230.pptik.id"
+RMQ2_PORT = 5672
+RMQ2_VHOST = "/ai-presensi"
+RMQ2_URI = f"amqp://ai-presensi:BtRD6f9oG29c@rmq230.pptik.id:5672/%2fai-presensi?heartbeat=600&blocked_connection_timeout=300"
+RMQ2_QUEUE = "presensi"
+
+# Hardcoded Camera GUID for RMQ2
+CAMERA_GUID = "CAM-P0721-DEVICE-USER"
+
+# --- Cooldown Configuration ---
+DETECTION_COOLDOWN_SECONDS = 60
+
 # --- Emotion Detection Labels ---
 EMOTION_LABELS = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
 
