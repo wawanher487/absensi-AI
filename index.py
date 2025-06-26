@@ -169,7 +169,7 @@ def recognize_frame():
             logging.info(f"Attempting to upload '{remote_filename}' to FTP...")
             if ftp_service.upload_to_ftp(image_bytes_for_upload, remote_filename):
                 logging.info(f"FTP STATUS: SUCCESS uploading '{remote_filename}'.")
-                image_url = f"{config.FTP_BASE_URL}{config.FTP_FOLDER}/{remote_filename}"
+                image_url = f"{remote_filename}"
                 
                 # Menyimpan hasil deteksi ke MongoDB
                 logging.info(f"Saving detection for '{person.get('name')}' to database...")
