@@ -34,8 +34,18 @@ training_lock = threading.Lock()
 @app.route('/')
 def index():
     """Renders the main page with a list of users."""
+    global user_details_map # Diperlukan untuk memodifikasi variabel global
     logging.info(f"Request for main page from {request.remote_addr}")
+
+    # [PERBAIKAN] Jika daftar pengguna kosong (misal, gagal saat startup), coba ambil lagi.
+    if not user_details_map:
+        logging.warning("User map is empty. Attempting to re-fetch from API...")
+        user_details_map = get_and_map_users_from_api()
+
     users = list(user_details_map.values())
+    if not users:
+        logging.warning("Still no users found after re-fetch attempt. Rendering with an empty list.")
+    
     return render_template('index.html', users=users)
 
 @app.route('/capture', methods=['POST'])
@@ -160,8 +170,6 @@ def recognize_frame():
             if ftp_service.upload_to_ftp(image_bytes_for_upload, remote_filename):
                 logging.info(f"FTP STATUS: SUCCESS uploading '{remote_filename}'.")
 
-                # [DIUBAH] Implementasi pengiriman ke dua antrian RMQ
-                
                 # --- Kirim ke RMQ #1 (Presensi) ---
                 image_url = f"{config.FTP_BASE_URL}{config.FTP_FOLDER}/{remote_filename}"
                 presence_payload = rmq_service.create_presence_payload(
