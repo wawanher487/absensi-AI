@@ -35,6 +35,7 @@ training_lock = threading.Lock()
 def index():
     """Create By Asep Trisna Setiawan"""
     """Renders the main page with a list of users."""
+    print("Create By Asep Trisna Setiawan")
     global user_details_map # Diperlukan untuk memodifikasi variabel global
     logging.info(f"Request for main page from {request.remote_addr}")
 
