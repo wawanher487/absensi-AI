@@ -15,8 +15,8 @@ db = None
 WIB = datetime.timezone(datetime.timedelta(hours=7))
 
 # Jadwal default
-JADWAL_MASUK = "09:00"
-JADWAL_KELUAR = "17:00"
+JADWAL_MASUK = "09:00:00"
+JADWAL_KELUAR = "17:00:00"
 
 try:
     client = MongoClient(config.MONGO_URI, serverSelectionTimeoutMS=5000)
