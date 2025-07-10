@@ -69,13 +69,13 @@ def create_presence_payload(user_guid: str, user_name: str, image_url: str, lati
             "imageUrl": image_url,
             "latitude": latitude,
             "longitude": longitude,
-            "guidInstitution": config.GUID_INSTITUTION,
+            # "guidInstitution": config.GUID_INSTITUTION,
             "hour": datetime.datetime.now().strftime("%H.%M")
         }
     }
 
 
-# --- [FUNGSI BARU] ---
+# # --- [FUNGSI BARU] ---
 
 def publish_file_notification(payload: dict) -> bool:
     """
@@ -83,7 +83,7 @@ def publish_file_notification(payload: dict) -> bool:
     """
     connection = None
     try:
-        print("RMQ2_URI:", config.RMQ2_URI)  # Debugging line to check RMQ2 URI
+        print("RMQ_URI:", config.RMQ2_URI)  # Debugging line to check RMQ2 URI
         params = pika.URLParameters(config.RMQ2_URI)
         connection = pika.BlockingConnection(params)
         channel = connection.channel()
@@ -94,7 +94,7 @@ def publish_file_notification(payload: dict) -> bool:
             "x-message-ttl": 60000
         }
         channel.queue_declare(
-            queue=config.RMQ_QUEUE, 
+            queue=config.RMQ2_QUEUE, 
             durable=False, # Diubah dari True menjadi False agar sesuai dengan server
             arguments=queue_args
         )

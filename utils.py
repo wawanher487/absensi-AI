@@ -37,9 +37,16 @@ def get_and_map_users_from_api():
                 logging.error(f"Tidak dapat menulis ke file pengguna statis: {e}")
 
             # Petakan data dan kembalikan hasilnya
+            # user_map = {}
+            # for user in users_list:
+            #     user_key = f"{user['name'].replace(' ', '_')}_{user['guid']}"
+            #     user_map[user_key] = user
+            # logging.info(f"Berhasil memetakan {len(user_map)} pengguna.")
+            # return user_map
             user_map = {}
             for user in users_list:
-                user_key = f"{user['name'].replace(' ', '_')}_{user['guid']}"
+                # Kunci HARUS hanya GUID-nya saja, dan pastikan bersih dari spasi
+                user_key = str(user['guid']).strip() # <-- Kunci yang Benar
                 user_map[user_key] = user
             return user_map
         else:
@@ -58,7 +65,7 @@ def get_and_map_users_from_api():
         
         user_map = {}
         for user in users_list:
-            user_key = f"{user['name'].replace(' ', '_')}_{user['guid']}"
+            user_key = f"{user['nama'].replace(' ', '_')}_{user['guid']}"
             user_map[user_key] = user
         return user_map
 

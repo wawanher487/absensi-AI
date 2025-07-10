@@ -1,0 +1,6 @@
+flask
+tensorflow
+opencv-python
+scikit-learn
+dlib
+joblib
