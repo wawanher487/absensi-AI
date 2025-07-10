@@ -27,3 +27,8 @@ wfastcgi.log
 Thumbs.db
 dataset
 trash
+
+
+# Docker
+Dockerfile
+.dockerignore

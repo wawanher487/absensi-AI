@@ -191,9 +191,9 @@ def save_detection_history(person_data: dict, image_url: str):
 
         else:
             # Sudah ada: Absen pulang
-            # if jam_sekarang < jam_keluar_default:
-            #     logging.info(f"Belum waktunya absen pulang untuk {person_data.get('nama')}, sekarang jam {jam_sekarang.strftime('%H:%M:%S')}")
-            #     return  #  Belum waktunya pulang
+            if jam_sekarang < jam_keluar_default:
+                logging.info(f"Belum waktunya absen pulang untuk {person_data.get('nama')}, sekarang jam {jam_sekarang.strftime('%H:%M:%S')}")
+                return  #  Belum waktunya pulang
 
             status_absen = "Pulang"
 
