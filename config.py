@@ -98,13 +98,13 @@ FTP_PASS = "Tpm0ni23!n6"
 FTP_FOLDER = "/presensi"
 FTP_BASE_URL = "https://monja-file.pptik.id/v1/view?path="
 
-# RMQ #1 - Untuk data presensi utama
-RMQ_URI = "amqp://absensi:PPTIK@|PASSWORD@cloudabsensi.pptik.id:5672/%2fabsensi?heartbeat=600&blocked_connection_timeout=300"
-RMQ_QUEUE = "presence-2024"
+# # RMQ #1 - Untuk data presensi utama
+# RMQ_URI = "amqp://absensi:PPTIK@|PASSWORD@cloudabsensi.pptik.id:5672/%2fabsensi?heartbeat=600&blocked_connection_timeout=300"
+# RMQ_QUEUE = "presence-2024"
 
 # RMQ #2 - Untuk notifikasi AI Presensi
 RMQ2_URI = "amqp://ai-presensi:BtRD6f9oG29c@rmq230.pptik.id:5672/%2fai-presensi?heartbeat=600&blocked_connection_timeout=300"
-RMQ2_QUEUE = "presensi"
+RMQ2_QUEUE = "presence-2024"
 
 
 # --- Analysis Configuration ---

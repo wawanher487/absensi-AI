@@ -32,7 +32,7 @@ from services.static_service import simpan_dari_bytes
 
 # --- [PERBAIKAN] TAMBAHKAN BLOK INI UNTUK MEMASTIKAN LOG MUNCUL DI TERMINAL ---
 logging.basicConfig(
-    level=logging.INFO, # Ganti ke logging.DEBUG untuk detail lebih banyak
+    level=logging.DEBUG, # Ganti ke logging.DEBUG untuk detail lebih banyak
     format='%(asctime)s - %(levelname)s - %(message)s',
     stream=sys.stdout  # Memaksa output ke terminal
 )
@@ -80,96 +80,82 @@ def refresh_users_if_needed():
         except Exception as e:
             logging.error(f"Gagal menyegarkan data pengguna dari API: {e}", exc_info=True)
 
-
-# --- Helper Functions ---
-def _process_detection(person_data: Dict[str, Any], image: np.ndarray, lat: float, lon: float):
+# ------------------------------------------------------------------
+def _process_detection(person_data: Dict[str, Any], image: np.ndarray, lat: float, lon: float) -> bool:
     """
-    Memproses satu deteksi yang valid: menggambar, mengunggah, menyimpan ke DB, dan mengirim notifikasi.
-    Fungsi ini dipanggil HANYA jika orang tersebut dikenali dan di luar masa cooldown.
+    1. Simpan foto RAW   (tanpa bounding‑box) → static + (opsional) FTP
+    2. Buat foto Annot   (dengan bounding‑box) → static + FTP
+    3. Tulis Annot URL ke Mongo history_ai
+    4. Kirim metadata RAW ke queue RMQ hanya kalau absensi BERHASIL
     """
-    user_guid = person_data['guid']
-    user_name = (
-    person_data.get('nama') or
-    person_data.get('name') or  # fallback dari static_json
-    user_details_map.get(user_guid, {}).get('nama', 'Nama Tidak Ditemukan')
-    )
+    # ----------- Persiapan dasar ------------
+    guid = person_data["guid"]
+    name = (person_data.get("nama")
+            or person_data.get("name")
+            or user_details_map.get(guid, {}).get("nama", "Nama Tidak Ditemukan"))
 
-    current_time = time.time()
-    
-    last_detection_timestamps[user_guid] = current_time
-    logging.info(f"User '{user_name}' (GUID: {user_guid}) terdeteksi. Memproses kehadiran...")
+    now_epoch = int(time.time())
+    last_detection_timestamps[guid] = now_epoch
 
-    annotated_image = image.copy()
-    
-    box = person_data.get('box')
+    # ----------- 1. RAW  -------------------
+    raw_fname  = f"raw_{guid}_{now_epoch}.jpg"
+    _, raw_buf = cv2.imencode(".jpg", image)
+    raw_bytes  = raw_buf.tobytes()
+    raw_url    = simpan_dari_bytes(raw_bytes, guid, filename=raw_fname)       # local URL
+
+    # upload RAW ke FTP (FE mungkin mau konsumsi langsung)
+    try:
+        if ftp_service.upload_to_ftp(raw_bytes, raw_fname):
+            raw_url = f"{raw_fname}"
+            logging.info("RAW upload FTP ✔")
+    except Exception as e:
+        logging.warning(f"RAW FTP error: {e}")
+
+    # ----------- 2. Annotated --------------
+    annotated = image.copy()
+    box = person_data.get("box")
     if box:
         (x1, y1, w, h) = box
-        x2, y2 = x1 + w, y1 + h
-        color_map = {'Marah': (0, 0, 255), 'Sedih': (255, 0, 0), 'Senang': (0, 255, 0), 'Netral': (255, 255, 0)}
-        color = color_map.get(person_data.get('mood', 'Netral'), (0, 255, 0))
-        label = f"{user_name} | {person_data.get('mood')} | {person_data.get('keletihan', 0):.1f}%"
+        x2, y2         = x1 + w, y1 + h
+        color_map      = {'Marah': (0,0,255), 'Sedih': (255,0,0),
+                          'Senang': (0,255,0), 'Netral': (255,255,0)}
+        color          = color_map.get(person_data.get("mood", "Netral"), (0,255,0))
+        label          = f"{name}|{person_data.get('mood')}|{person_data.get('keletihan',0):.1f}%"
+        cv2.rectangle(annotated, (x1,y1), (x2,y2), color, 2)
+        cv2.rectangle(annotated, (x1, y2-35), (x2, y2), color, cv2.FILLED)
+        cv2.putText(annotated, label, (x1+6, y2-6),
+                    cv2.FONT_HERSHEY_DUPLEX, 0.7, (255,255,255), 1)
 
-        cv2.rectangle(annotated_image, (x1, y1), (x2, y2), color, 2)
-        cv2.rectangle(annotated_image, (x1, y2 - 35), (x2, y2), color, cv2.FILLED)
-        cv2.putText(annotated_image, label, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), 1)
+    annot_fname  = f"annot_{guid}_{now_epoch}.jpg"
+    _, annot_buf = cv2.imencode(".jpg", annotated)
+    annot_bytes  = annot_buf.tobytes()
+    annot_url    = simpan_dari_bytes(annot_bytes, guid, filename=annot_fname) # local
 
-    _, buffer = cv2.imencode('.jpg', annotated_image)
-    image_bytes_for_upload = buffer.tobytes()
-    remote_filename = f"detection_{user_guid}_{int(current_time)}.jpg"
-
-    # Simpan ke folder static
-    local_image_url = simpan_dari_bytes(image_bytes_for_upload, user_guid)
-    logging.info(f"Gambar lokal disimpan di: {local_image_url}")
-
-    # (Opsional) Simpan juga ke person_data agar dikembalikan ke frontend
-    person_data['image_local_url'] = local_image_url
-
-
-    # Default image_url pakai lokal
-    image_url = local_image_url
-
-    # Coba upload ke FTP (opsional)
+    # upload annotated ke FTP; FE bisa ‘view’ gambar bercorak kotak
     try:
-        if ftp_service.upload_to_ftp(image_bytes_for_upload, remote_filename):
-            image_url = f"{config.FTP_BASE_URL}{config.FTP_FOLDER}/{remote_filename}"
-            logging.info("Upload FTP berhasil, pakai URL dari FTP.")
-        else:
-            logging.warning("Upload FTP gagal, pakai URL lokal.")
+        if ftp_service.upload_to_ftp(annot_bytes, annot_fname):
+            annot_url = f"{annot_fname}"
+            logging.info("Annotated upload FTP ✔")
     except Exception as e:
-        logging.warning(f"Exception saat upload FTP: {e}. Pakai URL lokal.")
+        logging.warning(f"Annotated FTP error: {e}")
 
-    # Simpan ke MongoDB dan kirim ke RMQ tetap dijalankan
-    pesan_hasil_absen = db_service.save_detection_history(person_data, remote_filename)
-    logging.info(f"Hasil absen: {pesan_hasil_absen}")
-    person_data['status_absen_message'] = pesan_hasil_absen # Simpan pesan ke person_data untuk dikembalikan ke frontend
-    
+    # ----------- 3. Simpan ke Mongo --------
+    pesan_db = db_service.save_detection_history(person_data, annot_url)  # gunakan URL (lokal/FTP) annotated
+    logging.info(f"[Mongo] {pesan_db}")
 
-    # Deteksi jika tidak perlu dikirim ke RMQ
-    if "sudah absen" in pesan_hasil_absen.lower():
-        person_data['status_kirim'] = "sudah_absen"
-        return False
-    elif "belum waktunya absen pulang" in pesan_hasil_absen.lower():
-        person_data['status_kirim'] = "belum_waktunya"
-        return False
-    elif "gagal" in pesan_hasil_absen.lower():
-        person_data['status_kirim'] = "gagal"
+    # ----------- 4. Kirim atau tidak ke RMQ ?
+    lower = pesan_db.lower()
+    if ("sudah absen" in lower or "belum waktunya" in lower or "gagal" in lower):
+        person_data["status_kirim"]  = "tidak_dikirim"
+        person_data["presence_sent"] = False
         return False
 
-
-    presence_payload = rmq_service.create_presence_payload(
-        user_guid=user_guid, user_name=user_name,
-        image_url=image_url, latitude=lat, longitude=lon
-    )
-    rmq_service.publish_to_rmq(presence_payload)
-
-    notification_payload = rmq_service.create_file_notification_payload(filename=remote_filename)
-    rmq_service.publish_file_notification(notification_payload)
-
-    person_data['presence_sent'] = True
-    person_data['status_kirim'] = "berhasil"
-
-    return True  
-
+    # Absensi BERHASIL ⇒ kirim metadata RAW
+    rmq_service.publish_photo_metadata(raw_fname)
+    person_data["status_kirim"]  = "berhasil"
+    person_data["presence_sent"] = True
+    return True
+    # ------------------------------------------------------------------
 
 
 # --- Flask Routes ---

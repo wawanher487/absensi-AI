@@ -5,18 +5,17 @@ from datetime import datetime
 import shutil
 import config
 
-def simpan_dari_bytes(image_bytes, user_guid):
-    """
-    Simpan gambar dari bytes (digunakan di app.py)
-    """
+# services/static_service.py
+def simpan_dari_bytes(image_bytes, user_guid, filename: str | None = None):
     folder = os.path.join("static", "detections")
     os.makedirs(folder, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"detection_{user_guid}_{timestamp}.jpg"
-    path = os.path.join(folder, filename)
+    if filename is None:                      
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"detection_{user_guid}_{timestamp}.jpg"
 
-    with open(path, 'wb') as f:
+    path = os.path.join(folder, filename)
+    with open(path, "wb") as f:
         f.write(image_bytes)
 
     return f"{config.BASE_URL}/static/detections/{filename}"
