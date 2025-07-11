@@ -427,3 +427,7 @@ label[for="user-dropdown"] {
     opacity: 0;
   }
 }
+
+#toast.info {
+  background-color: #17a2b8;
+}

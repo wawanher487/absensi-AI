@@ -1,0 +1,37 @@
+# services/static_service.py
+
+import os
+from datetime import datetime
+import shutil
+import config
+
+def simpan_dari_bytes(image_bytes, user_guid):
+    """
+    Simpan gambar dari bytes (digunakan di app.py)
+    """
+    folder = os.path.join("static", "detections")
+    os.makedirs(folder, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"detection_{user_guid}_{timestamp}.jpg"
+    path = os.path.join(folder, filename)
+
+    with open(path, 'wb') as f:
+        f.write(image_bytes)
+
+    return f"{config.BASE_URL}/static/detections/{filename}"
+
+def simpan_dari_path(local_image_path, user_guid, base_url=config.BASE_URL):
+    """
+    Simpan gambar dari path lokal (digunakan di consumer_worker.py)
+    """
+    folder = os.path.join("static", "detections")
+    os.makedirs(folder, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"detection_{user_guid}_{timestamp}.jpg"
+    target_path = os.path.join(folder, filename)
+
+    shutil.copy(local_image_path, target_path)
+
+    return f"{base_url}/static/detections/{filename}"

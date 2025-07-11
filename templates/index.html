@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard Training & Uji Coba</title>
+    <title>Dashboard Training & Absensi</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -28,12 +28,12 @@
 
     <div class="container">
       <!-- <header class="app-header">
-            <h1>Dashboard Training & Uji Coba</h1>
+            <h1>Dashboard Training & Absensi</h1>
             <p class="subtitle">Sistem untuk menambah dataset dan menguji model pengenalan wajah</p>
         </header> -->
 
       <header class="app-header">
-        <h1>Dashboard Training & Uji Coba</h1>
+        <h1>Dashboard Training & Absensi</h1>
         <p class="subtitle">
           Sistem untuk menambah dataset dan menguji model pengenalan wajah
         </p>
@@ -79,7 +79,7 @@
             <circle cx="12" cy="12" r="10"></circle>
             <polygon points="10 8 16 12 10 16 10 8"></polygon>
           </svg>
-          <span>Uji Coba</span>
+          <span>Absensi</span>
         </button>
       </div>
 
@@ -204,6 +204,7 @@
                 <span id="identity-emotion">Suasana Hati: -</span>
                 <span class="separator">|</span>
                 <span id="identity-fatigue">Status: -</span>
+                <span id="identity-status-kirim">Absen: -</span>
               </div>
             </div>
           </div>
@@ -319,12 +320,18 @@
             const gagal = parseInt(message.match(/(\d+)\s*gagal/)?.[1] || "0");
 
             if (results.length > 0) {
-              if (berhasil > 0 && gagal === 0) {
+              const alreadyAbsenCount = results.filter(
+                (p) => p.status_kirim === "sudah_absen"
+              ).length;
+
+              if (berhasil > 0 && gagal === 0 && alreadyAbsenCount === 0) {
                 showToast(message, "success");
               } else if (berhasil > 0 && gagal > 0) {
-                showToast(message, "warn"); // status campuran
+                showToast(message, "warn"); // sebagian berhasil
               } else if (berhasil === 0 && gagal > 0) {
                 showToast(message, "error"); // semua gagal kirim
+              } else if (alreadyAbsenCount > 0) {
+                showToast("Anda sudah absen sebelumnya.", "info");
               }
             }
           } catch (error) {
@@ -420,6 +427,10 @@
                 ? recognizedPerson.keletihan + "%"
                 : "-"
             }`;
+            const statusKirim = recognizedPerson.status_kirim || "-";
+            document.getElementById(
+              "identity-status-kirim"
+            ).textContent = `Absen: ${statusKirim}`;
             identityBox.classList.remove("is-hidden");
           } else {
             // Jika tidak ada SATUPUN yang dikenali, sembunyikan kotak

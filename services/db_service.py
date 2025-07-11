@@ -111,35 +111,29 @@ def log_raw_detection_data(person_data: dict, image_url: str):
     except Exception as e:
         logging.error(f"Kesalahan tak terduga: {e}", exc_info=True)
 
-
-def save_detection_history(person_data: dict, image_url: str):
+def save_detection_history(person_data: dict, image_url: str) -> str:
     """
-    Menyimpan/perbarui hasil deteksi AI di koleksi 'history_ai'.
-    Menggunakan zona waktu Indonesia Barat (WIB) untuk semua timestamp.
-    Sekarang menyimpan status_absen sebagai array ["Hadir", "Pulang"].
+    Menyimpan atau memperbarui hasil deteksi AI. Kembalikan pesan hasil.
     """
     if db is None:
         logging.error("Database tidak terhubung. Operasi dibatalkan.")
-        return
+        return "Gagal: Database tidak terhubung"
 
-    # Catat data mentah terlebih dahulu
     log_raw_detection_data(person_data, image_url)
-    
+
     try:
         history_collection = db.history_ai
         current_time = datetime.datetime.now(WIB)
         today_date_str = current_time.strftime('%Y-%m-%d')
-        
-        time_str = current_time.strftime('%H:%M:%S')  # HH:MM:SS
-        jam_masuk_default = datetime.datetime.strptime(JADWAL_MASUK, "%H:%M").time()
-        jam_keluar_default = datetime.datetime.strptime(JADWAL_KELUAR, "%H:%M").time()
+        time_str = current_time.strftime('%H:%M:%S')
+        jam_masuk_default = datetime.datetime.strptime(JADWAL_MASUK, "%H:%M:%S").time()
+        jam_keluar_default = datetime.datetime.strptime(JADWAL_KELUAR, "%H:%M:%S").time()
         jam_sekarang = current_time.time()
 
         status_absen = "-"
         jumlah_telat = 0
         total_jam_telat = 0
 
-        # Cek apakah sudah ada record hari ini
         query = {
             'userGuid': person_data.get('guid', 'N/A'),
             'datetime': {'$regex': f'^{today_date_str}'}
@@ -147,11 +141,9 @@ def save_detection_history(person_data: dict, image_url: str):
         existing_record = history_collection.find_one(query)
 
         if not existing_record:
-            # Belum ada: Absen masuk
+            # Absen Masuk
             if jam_sekarang <= jam_masuk_default:
                 status_absen = "Hadir"
-                jumlah_telat = 0
-                total_jam_telat = 0
             else:
                 status_absen = "Terlambat"
                 jumlah_telat = 1
@@ -159,7 +151,6 @@ def save_detection_history(person_data: dict, image_url: str):
                 total_jam_telat = int(selisih.total_seconds() // 60)
 
             # Simpan record baru
-            logging.info("Membuat record baru")
             history_document = {
                 'nama': person_data.get('nama', 'Tidak Dikenal'),
                 'gambar': image_url,
@@ -169,7 +160,7 @@ def save_detection_history(person_data: dict, image_url: str):
                 "Senang": person_data.get('mood_scores', {}).get('Senang', 0.0),
                 "Netral": person_data.get('mood_scores', {}).get('Netral', 0.0),
                 "Sedih": person_data.get('mood_scores', {}).get('Sedih', 0.0),
-                'status_absen': [status_absen],  # ⬅️ Langsung array
+                'status_absen': [status_absen],
                 'userGuid': person_data.get('guid', 'N/A'),
                 'guid': str(uuid.uuid4()),
                 'guid_device': config.CAMERA_GUID,
@@ -186,21 +177,24 @@ def save_detection_history(person_data: dict, image_url: str):
                 'createdAt': current_time,
                 'updatedAt': current_time
             }
-            result = history_collection.insert_one(history_document)
-            logging.info(f"Record baru dibuat. ID: {result.inserted_id}")
+            history_collection.insert_one(history_document)
+            logging.info(f"{person_data.get('nama')} berhasil absen {status_absen}")
+            return f"{person_data.get('nama')} berhasil absen {status_absen}"
 
         else:
-            # Sudah ada: Absen pulang
+            # Sudah ada record hari ini (berarti sudah absen masuk)
+            status_lama = existing_record.get('status_absen', [])
+            if "Pulang" in status_lama:
+                logging.info(f"{person_data.get('nama')} sudah absen pulang hari ini")
+                return f"{person_data.get('nama')} sudah absen pulang hari ini"
+
             if jam_sekarang < jam_keluar_default:
                 logging.info(f"Belum waktunya absen pulang untuk {person_data.get('nama')}, sekarang jam {jam_sekarang.strftime('%H:%M:%S')}")
-                return  #  Belum waktunya pulang
+                return f"Belum waktunya absen pulang untuk {person_data.get('nama')}"
 
+            # Tambahkan status "Pulang"
             status_absen = "Pulang"
-
-            logging.info(f"Memperbarui record untuk {person_data.get('nama')} sebagai pulang")
-
-            status_lama = existing_record.get('status_absen', [])
-            status_baru = list(set(status_lama + [status_absen]))  # ⬅️ Tambah "Pulang" jika belum ada
+            status_baru = status_lama + ["Pulang"]
 
             update_fields = {
                 '$set': {
@@ -211,7 +205,7 @@ def save_detection_history(person_data: dict, image_url: str):
                     "Senang": person_data.get('mood_scores', {}).get('Senang', 0.0),
                     "Netral": person_data.get('mood_scores', {}).get('Netral', 0.0),
                     "Sedih": person_data.get('mood_scores', {}).get('Sedih', 0.0),
-                    'status_absen': status_baru,  # ⬅️ Array gabungan
+                    'status_absen': status_baru,
                     'unit': person_data.get('unit', 'N/A'),
                     'datetime': current_time.isoformat(),
                     'timestamp': int(time.time()),
@@ -223,12 +217,11 @@ def save_detection_history(person_data: dict, image_url: str):
 
             result = history_collection.update_one(query, update_fields)
             if result.modified_count > 0:
-                logging.info(f"Record diperbarui. ID: {existing_record.get('_id')}")
+                logging.info(f"{person_data.get('nama')} berhasil absen pulang.")
+                return f"{person_data.get('nama')} berhasil absen pulang."
             else:
-                logging.warning("Tidak ada perubahan data saat update.")
-
-    except OperationFailure as e:
-        logging.error(f"Operasi MongoDB gagal: {e}", exc_info=True)
+                return f"{person_data.get('nama')} sudah absen pulang."
+    
     except Exception as e:
         logging.error(f"Kesalahan tak terduga: {e}", exc_info=True)
-
+        return f"Gagal menyimpan absen: {str(e)}"

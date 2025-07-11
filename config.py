@@ -89,6 +89,8 @@ API_URL = "http://localhost:4000/karyawan/get"
 MONGO_URI = "mongodb+srv://wh891706:Jz1X5pslUXxCBw9s@cluster0.vt4xkx8.mongodb.net"
 MONGO_DB_NAME = "presensi_ai"
 
+BASE_URL = "http://localhost:6734"
+
 FTP_HOST = "ftp5.pptik.id"
 FTP_PORT = 2121
 FTP_USER = "monitoring"

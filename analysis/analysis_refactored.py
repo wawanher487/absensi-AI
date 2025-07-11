@@ -174,7 +174,7 @@ class FaceAnalysisSystem:
             
             results.append({
                 "box": (x, y, w, h), "nama": nama, "guid": guid, "unit": unit,
-                "mood": mood, "keletihan": keletihan, "mood_scores": mood_scores
+                "mood": mood, "keletihan": keletihan, "mood_scores": mood_scores,  "presence_sent": False , "status_kirim": "sudah_absen"
             })
 
         return results

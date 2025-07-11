@@ -1,6 +1,7 @@
 # app.py
 
 # --- Python Standard Library Imports ---
+import datetime
 import os
 import base64
 import time
@@ -13,6 +14,7 @@ from typing import Dict, Any
 # --- Third-party Library Imports ---
 import cv2
 import numpy as np
+from rich import _console
 from flask import Flask, render_template, request, jsonify
 from werkzeug.exceptions import BadRequest
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -22,6 +24,7 @@ import config
 from utils import setup_logging, get_and_map_users_from_api
 from services import ftp_service, rmq_service, db_service
 from analysis.analysis_refactored import FaceAnalysisSystem
+from services.static_service import simpan_dari_bytes
 
 # --- Initial Setup ---
 # setup_logging()
@@ -114,24 +117,60 @@ def _process_detection(person_data: Dict[str, Any], image: np.ndarray, lat: floa
     image_bytes_for_upload = buffer.tobytes()
     remote_filename = f"detection_{user_guid}_{int(current_time)}.jpg"
 
-    if ftp_service.upload_to_ftp(image_bytes_for_upload, remote_filename):
-        image_url = f"{config.FTP_BASE_URL}{config.FTP_FOLDER}/{remote_filename}"
-        
-        db_service.save_detection_history(person_data, remote_filename)
+    # Simpan ke folder static
+    local_image_url = simpan_dari_bytes(image_bytes_for_upload, user_guid)
+    logging.info(f"Gambar lokal disimpan di: {local_image_url}")
 
-        presence_payload = rmq_service.create_presence_payload(
-            user_guid=user_guid, user_name=user_name,
-            image_url=image_url, latitude=lat, longitude=lon
-        )
-        rmq_service.publish_to_rmq(presence_payload)
+    # (Opsional) Simpan juga ke person_data agar dikembalikan ke frontend
+    person_data['image_local_url'] = local_image_url
 
-        notification_payload = rmq_service.create_file_notification_payload(filename=remote_filename)
-        rmq_service.publish_file_notification(notification_payload)
-        
-        person_data['presence_sent'] = True
-    else:
-        logging.error(f"Upload FTP GAGAL untuk {user_name}. Proses DB dan RMQ dilewati.")
-        person_data['presence_sent'] = None
+
+    # Default image_url pakai lokal
+    image_url = local_image_url
+
+    # Coba upload ke FTP (opsional)
+    try:
+        if ftp_service.upload_to_ftp(image_bytes_for_upload, remote_filename):
+            image_url = f"{config.FTP_BASE_URL}{config.FTP_FOLDER}/{remote_filename}"
+            logging.info("Upload FTP berhasil, pakai URL dari FTP.")
+        else:
+            logging.warning("Upload FTP gagal, pakai URL lokal.")
+    except Exception as e:
+        logging.warning(f"Exception saat upload FTP: {e}. Pakai URL lokal.")
+
+    # Simpan ke MongoDB dan kirim ke RMQ tetap dijalankan
+    pesan_hasil_absen = db_service.save_detection_history(person_data, remote_filename)
+    logging.info(f"Hasil absen: {pesan_hasil_absen}")
+    person_data['status_absen_message'] = pesan_hasil_absen # Simpan pesan ke person_data untuk dikembalikan ke frontend
+    
+
+    # Deteksi jika tidak perlu dikirim ke RMQ
+    if "sudah absen" in pesan_hasil_absen.lower():
+        person_data['status_kirim'] = "sudah_absen"
+        return False
+    elif "belum waktunya absen pulang" in pesan_hasil_absen.lower():
+        person_data['status_kirim'] = "belum_waktunya"
+        return False
+    elif "gagal" in pesan_hasil_absen.lower():
+        person_data['status_kirim'] = "gagal"
+        return False
+
+
+    presence_payload = rmq_service.create_presence_payload(
+        user_guid=user_guid, user_name=user_name,
+        image_url=image_url, latitude=lat, longitude=lon
+    )
+    rmq_service.publish_to_rmq(presence_payload)
+
+    notification_payload = rmq_service.create_file_notification_payload(filename=remote_filename)
+    rmq_service.publish_file_notification(notification_payload)
+
+    person_data['presence_sent'] = True
+    person_data['status_kirim'] = "berhasil"
+
+    return True  
+
+
 
 # --- Flask Routes ---
 @app.route('/')
@@ -238,19 +277,44 @@ def recognize_frame():
         user_guid = person_data.get('guid')
         if user_guid:
             current_time = time.time()
-            if (current_time - last_detection_timestamps.get(user_guid, 0)) > config.DETECTION_COOLDOWN_SECONDS:
-                _process_detection(person_data, img, lat, lon)
+            last_seen = last_detection_timestamps.get(user_guid, 0)
+            cooldown_expired = (current_time - last_seen) > config.DETECTION_COOLDOWN_SECONDS
+
+            if cooldown_expired:
+                success = _process_detection(person_data, img, lat, lon)
+                person_data['presence_sent'] = success  # ✅ tandai apakah berhasil dikirim ke backend
+                last_detection_timestamps[user_guid] = current_time  # Simpan waktu deteksi terbaru
             else:
-                logging.debug(f"User '{person_data.get('nama')}' terdeteksi, tetapi dalam masa cooldown.")
+                person_data['presence_sent'] = False  # ✅ masih dalam masa cooldown
+        else:
+            person_data['presence_sent'] = False  # ✅ tidak dikenali, tidak bisa dikirim
     
     success_count = sum(1 for person in results if person.get('presence_sent'))
-    fail_count = sum(1 for person in results if person.get('presence_sent') is False)
-    logging.info(f"Hasil akhir: {success_count} berhasil, {fail_count} gagal dikirim.")
+    already_present_count = sum(1 for person in results if person.get('status_absen_message', '').lower().startswith("sudah absen"))
+    fail_count = sum(
+    1 for person in results 
+    if person.get('presence_sent') is False and person.get('status_kirim') not in ['sudah_absen', 'belum_waktunya'] 
+    )
 
+    message_parts = []
+   
+    if success_count:
+        message_parts.append(f"{success_count} berhasil")
+    if already_present_count:
+        message_parts.append(f"{already_present_count} sudah absen")
+    if fail_count:
+        message_parts.append(f"{fail_count} gagal dikirim")
+
+    # Tambahkan ini sebelum return jsonify
+    logging.debug(f"message_parts: {message_parts}")
+    logging.debug(f"results: {json.dumps(results, indent=2, ensure_ascii=False)}")
+
+
+    final_message = ', '.join(message_parts) or "Tidak ada deteksi"
 
     return jsonify({
         "status": "success" if fail_count == 0 else "partial",
-        "message": f"{success_count} berhasil, {fail_count} gagal dikirim.",
+        "message": final_message,
         "results": results
     })
 
@@ -268,6 +332,7 @@ def get_training_stats():
     except Exception as e:
         logging.error(f"Error menghitung statistik training: {e}", exc_info=True)
         return jsonify({'error': 'Gagal mengambil statistik.', 'detail': str(e)}), 500
+    
 
 # --- Main Execution ---
 if __name__ == '__main__':
@@ -276,3 +341,4 @@ if __name__ == '__main__':
     logging.debug(f"user_details_map keys: {list(user_details_map.keys())}")
 
     app.run(host='0.0.0.0', port=config.APP_PORT, debug=False, threaded=True)
+
