@@ -102,9 +102,14 @@ FTP_BASE_URL = "https://monja-file.pptik.id/v1/view?path="
 # RMQ_URI = "amqp://absensi:PPTIK@|PASSWORD@cloudabsensi.pptik.id:5672/%2fabsensi?heartbeat=600&blocked_connection_timeout=300"
 # RMQ_QUEUE = "presence-2024"
 
-# RMQ #2 - Untuk notifikasi AI Presensi
-RMQ2_URI = "amqp://ai-presensi:BtRD6f9oG29c@rmq230.pptik.id:5672/%2fai-presensi?heartbeat=600&blocked_connection_timeout=300"
-RMQ2_QUEUE = "presence-2024"
+# # RMQ #2 - Untuk notifikasi AI Presensi
+# RMQ2_URI = "amqp://ai-presensi:BtRD6f9oG29c@rmq230.pptik.id:5672/%2fai-presensi?heartbeat=600&blocked_connection_timeout=300"
+# RMQ2_QUEUE = "presence-2024"
+
+# RMQ #2 – Untuk notifikasi AI‑Presensi (versi lokal)
+RMQ2_URI="amqp://guest:guest@localhost:5672/%2f?heartbeat=600&blocked_connection_timeout=300"
+RMQ2_QUEUE="history-presensi"
+
 
 
 # --- Analysis Configuration ---

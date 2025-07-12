@@ -55,5 +55,24 @@
         "status": true,
         "createdAt": "2025-07-10T04:33:22.102Z",
         "updatedAt": "2025-07-10T04:33:22.102Z"
+    },
+    {
+        "id": "687211de5b5228492cec71ab",
+        "name": "Asep Trisna Setiawan",
+        "gender": "L",
+        "gambar": "/presensi/004f057c-bf20-43e3-9c42-e832d6e24175_asep_trisna_setiawan.jpg",
+        "guid": "004f057c-bf20-43e3-9c42-e832d6e24175",
+        "address": "Jl. Sukamulya blok A",
+        "jabatan": "pegawai senior",
+        "nip": "434217928583",
+        "birthDate": "1989-06-12T00:00:00.000Z",
+        "phoneNumber": "08794578123",
+        "role": "user",
+        "guidUnit": "08905a74-030f-430c-8866-368928d35086",
+        "unit": "Team Developer",
+        "gajiHarian": 250000,
+        "status": true,
+        "createdAt": "2025-07-12T07:42:22.286Z",
+        "updatedAt": "2025-07-12T07:42:22.286Z"
     }
 ]

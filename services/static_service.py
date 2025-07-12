@@ -18,7 +18,7 @@ def simpan_dari_bytes(image_bytes, user_guid, filename: str | None = None):
     with open(path, "wb") as f:
         f.write(image_bytes)
 
-    return f"{config.BASE_URL}/static/detections/{filename}"
+    return f"{filename}"
 
 def simpan_dari_path(local_image_path, user_guid, base_url=config.BASE_URL):
     """
@@ -33,4 +33,4 @@ def simpan_dari_path(local_image_path, user_guid, base_url=config.BASE_URL):
 
     shutil.copy(local_image_path, target_path)
 
-    return f"{base_url}/static/detections/{filename}"
+    return f"{filename}"
