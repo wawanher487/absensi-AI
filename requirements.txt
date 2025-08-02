@@ -1,9 +1,12 @@
+dlib
 flask
 tensorflow
 opencv-python
 scikit-learn
-dlib
 joblib
 pymongo
 numpy
 pika
+face_recognition
+flask
+
