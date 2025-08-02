@@ -18,9 +18,14 @@ def upload_to_ftp(image_bytes: bytes, remote_filename: str) -> bool:
         # Using 'with' ensures the connection is properly closed even if errors occur.
         with FTP() as ftp:
             # Set a timeout for the connection attempt.
-            ftp.connect(config.FTP_HOST, config.FTP_PORT, timeout=10)
+            logging.info("Connecting to FTP server...")
+            ftp.connect(config.FTP_HOST, config.FTP_PORT, timeout=30)
+            logging.info("Connected. Logging in...")
             ftp.login(config.FTP_USER, config.FTP_PASS)
+            logging.info("Logged in successfully.")
+            ftp.set_pasv(True) 
 
+            
             # [DIUBAH] More robust way to handle directory existence.
             try:
                 # Attempt to change into the target directory.
@@ -49,3 +54,8 @@ def upload_to_ftp(image_bytes: bytes, remote_filename: str) -> bool:
         # Catching a broad exception, but logging the specific error is key.
         logging.error(f"FTP UPLOAD FAILED for '{remote_filename}': {e}", exc_info=True)
         return False
+    
+
+def get_ftp_image_url(filename: str) -> str:
+    return f"https://monja-file.pptik.id/v1/view?path={filename}"
+

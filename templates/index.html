@@ -1,307 +1,561 @@
 <!DOCTYPE html>
 <html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Training & Uji Coba</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Training & Absensi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <!-- Pastikan Anda memiliki file style.css di dalam folder static -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
 
+  <body>
     <div id="loading-overlay" class="loading-overlay is-hidden">
-        <div class="spinner"></div>
-        <p id="loading-text">Sedang melatih model... Mohon tunggu.</p>
-        <p id="countdown-timer" class="countdown-timer"></p>
+      <div class="spinner"></div>
+      <p id="loading-text">Sedang melatih model... Mohon tunggu.</p>
+      <p id="countdown-timer" class="countdown-timer"></p>
     </div>
 
     <div id="toast"></div>
 
     <div class="container">
-        <header class="app-header">
-            <h1>Dashboard Training & Uji Coba</h1>
+      <!-- <header class="app-header">
+            <h1>Dashboard Training & Absensi</h1>
             <p class="subtitle">Sistem untuk menambah dataset dan menguji model pengenalan wajah</p>
-        </header>
+        </header> -->
 
-        <div class="tab-navigation">
-            <button class="tab-link active" data-tab="training">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-users"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                <span>Training</span>
+      <header class="app-header">
+        <h1>Dashboard Training & Absensi</h1>
+        <!-- <p class="subtitle">
+          Sistem untuk menambah dataset dan menguji model pengenalan wajah
+        </p> -->
+        <!-- <button id="enable-sound-button" class="sound-button">
+          🔊 Aktifkan Suara
+        </button> -->
+      </header>
+
+      <div class="tab-navigation">
+        <button class="tab-link active" data-tab="training">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="feather feather-users"
+          >
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span>Training</span>
+        </button>
+        <button class="tab-link" data-tab="testing">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="feather feather-play-circle"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="10 8 16 12 10 16 10 8"></polygon>
+          </svg>
+          <span>Absensi</span>
+        </button>
+      </div>
+
+      <div class="camera-container">
+        <div class="camera-card">
+          <video
+            id="video-feed"
+            width="640"
+            height="480"
+            autoplay
+            muted
+            playsinline
+          ></video>
+          <canvas id="overlay-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="tab-content-wrapper">
+        <div id="training" class="tab-content active">
+          <div class="controls-wrapper">
+            <div class="user-selector">
+              <label for="user-search-input">Cari User:</label>
+              <input
+                type="text"
+                id="user-search-input"
+                class="search-input"
+                placeholder="Ketik untuk mencari nama user..."
+              />
+              <label for="user-dropdown">Pilih User untuk Training:</label>
+              <select id="user-dropdown">
+                <option value="" disabled selected>
+                  -- Pilih Nama User --
+                </option>
+                {% for user in users %}
+                <option value="{{ user.guid }}" data-name="{{ user.name }}">
+                  {{ user.name }} ({{ user.unit }})
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <button id="capture-button" class="capture-button" disabled>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="feather feather-camera"
+              >
+                <path
+                  d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+                ></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <span>Ambil Gambar</span>
             </button>
-            <button class="tab-link" data-tab="testing">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-play-circle"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
-                <span>Uji Coba</span>
+          </div>
+          <div id="gallery-area" class="gallery-area is-hidden">
+            <h4>Gambar yang Baru Diambil</h4>
+            <div id="thumbnail-gallery" class="thumbnail-gallery"></div>
+          </div>
+          <div class="train-button-container">
+            <button id="train-button-js" class="train-button">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="feather feather-cpu"
+              >
+                <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                <rect x="9" y="9" width="6" height="6"></rect>
+                <line x1="9" y1="1" x2="9" y2="4"></line>
+                <line x1="15" y1="1" x2="15" y2="4"></line>
+                <line x1="9" y1="20" x2="9" y2="23"></line>
+                <line x1="15" y1="20" x2="15" y2="23"></line>
+                <line x1="20" y1="9" x2="23" y2="9"></line>
+                <line x1="20" y1="14" x2="23" y2="14"></line>
+                <line x1="1" y1="9" x2="4" y2="9"></line>
+                <line x1="1" y1="14" x2="4" y2="14"></line>
+              </svg>
+              <span>Latih Model Sekarang</span>
             </button>
+          </div>
         </div>
 
-        <div class="camera-container">
-            <div class="camera-card">
-                <video id="video-feed" width="640" height="480" autoplay muted playsinline></video>
-                <canvas id="overlay-canvas"></canvas>
+        <div id="testing" class="tab-content">
+          <p class="info-text">
+            Arahkan wajah Anda ke kamera untuk memulai deteksi real-time.
+          </p>
+          <div id="identity-box" class="identity-box is-hidden">
+            <div class="identity-avatar">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="feather feather-user"
+              >
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
             </div>
+            <div class="identity-details">
+              <h3 id="identity-name">Tidak Terdeteksi</h3>
+              <p id="identity-unit">Unit: -</p>
+              <div class="identity-status">
+                <span id="identity-emotion">Suasana Hati: -</span>
+                <span class="separator">|</span>
+                <span id="identity-fatigue">Status: -</span>
+                <span id="identity-status-kirim">Absen: -</span>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div class="tab-content-wrapper">
-            <div id="training" class="tab-content active">
-                <div class="controls-wrapper">
-                    <div class="user-selector">
-                        <label for="user-search-input">Cari User:</label>
-                        <input type="text" id="user-search-input" class="search-input" placeholder="Ketik untuk mencari nama user...">
-                        <label for="user-dropdown">Pilih User untuk Training:</label>
-                        <select id="user-dropdown">
-                            <option value="" disabled selected>-- Pilih Nama User --</option>
-                            {% for user in users %}
-                                <option value="{{ user.guid }}" data-name="{{ user.name }}">{{ user.name }} ({{ user.unit }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <button id="capture-button" class="capture-button" disabled>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-camera"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                        <span>Ambil Gambar</span>
-                    </button>
-                </div>
-                <div id="gallery-area" class="gallery-area is-hidden">
-                    <h4>Gambar yang Baru Diambil</h4>
-                    <div id="thumbnail-gallery" class="thumbnail-gallery"></div>
-                </div>
-                 <div class="train-button-container">
-                    <button id="train-button-js" class="train-button">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-cpu"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
-                        <span>Latih Model Sekarang</span>
-                    </button>
-                 </div>
-            </div>
-
-            <div id="testing" class="tab-content">
-                <p class="info-text">Arahkan wajah Anda ke kamera untuk memulai deteksi real-time.</p>
-                <div id="identity-box" class="identity-box is-hidden">
-                    <div class="identity-avatar">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-user"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                    </div>
-                    <div class="identity-details">
-                        <h3 id="identity-name">Tidak Terdeteksi</h3>
-                        <p id="identity-unit">Unit: -</p>
-                        <div class="identity-status">
-                            <span id="identity-emotion">Suasana Hati: -</span>
-                            <span class="separator">|</span>
-                            <span id="identity-fatigue">Status: -</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const video = document.getElementById('video-feed');
-    const overlayCanvas = document.getElementById('overlay-canvas');
-    const ctx = overlayCanvas.getContext('2d');
-    const tabLinks = document.querySelectorAll('.tab-link');
-    const tabContents = document.querySelectorAll('.tab-content');
-    const identityBox = document.getElementById('identity-box');
-    const identityName = document.getElementById('identity-name');
-    const identityUnit = document.getElementById('identity-unit');
-    const identityEmotion = document.getElementById('identity-emotion');
-    const identityFatigue = document.getElementById('identity-fatigue');
-    const userDropdown = document.getElementById('user-dropdown');
-    const captureButton = document.getElementById('capture-button');
-    const galleryArea = document.getElementById('gallery-area');
-    const thumbnailGallery = document.getElementById('thumbnail-gallery');
-    const loadingOverlay = document.getElementById('loading-overlay');
-    const loadingText = document.getElementById('loading-text');
-    const countdownTimer = document.getElementById('countdown-timer');
-    const trainButton = document.getElementById('train-button-js');
-    const searchInput = document.getElementById('user-search-input');
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const video = document.getElementById("video-feed");
+        const overlayCanvas = document.getElementById("overlay-canvas");
+        const ctx = overlayCanvas.getContext("2d");
+        const tabLinks = document.querySelectorAll(".tab-link");
+        const tabContents = document.querySelectorAll(".tab-content");
+        const identityBox = document.getElementById("identity-box");
+        const identityName = document.getElementById("identity-name");
+        const identityUnit = document.getElementById("identity-unit");
+        const identityEmotion = document.getElementById("identity-emotion");
+        const identityFatigue = document.getElementById("identity-fatigue");
+        const userDropdown = document.getElementById("user-dropdown");
+        const captureButton = document.getElementById("capture-button");
+        const galleryArea = document.getElementById("gallery-area");
+        const thumbnailGallery = document.getElementById("thumbnail-gallery");
+        const loadingOverlay = document.getElementById("loading-overlay");
+        const loadingText = document.getElementById("loading-text");
+        const countdownTimer = document.getElementById("countdown-timer");
+        const trainButton = document.getElementById("train-button-js");
+        const searchInput = document.getElementById("user-search-input");
 
-    let testInterval = null;
-    let countdownInterval = null;
-    let processingFrame = false;
-    const tempCanvas = document.createElement('canvas');
+        let testInterval = null;
+        let countdownInterval = null;
+        let processingFrame = false;
+        const tempCanvas = document.createElement("canvas");
 
-    async function startCamera() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
+        async function startCamera() {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            });
             video.srcObject = stream;
             video.onloadedmetadata = () => {
-                overlayCanvas.width = video.videoWidth;
-                overlayCanvas.height = video.videoHeight;
-                tempCanvas.width = video.videoWidth;
-                tempCanvas.height = video.videoHeight;
+              overlayCanvas.width = video.videoWidth;
+              overlayCanvas.height = video.videoHeight;
+              tempCanvas.width = video.videoWidth;
+              tempCanvas.height = video.videoHeight;
             };
-        } catch (error) { console.error("Gagal mengakses kamera:", error); showToast("Gagal mengakses kamera!", "error"); }
-    }
-    startCamera();
+          } catch (error) {
+            console.error("Gagal mengakses kamera:", error);
+            showToast("Gagal mengakses kamera!", "error");
+          }
+        }
+        startCamera();
 
-    tabLinks.forEach(link => {
-        link.addEventListener('click', () => switchTab(link));
-    });
+        tabLinks.forEach((link) => {
+          link.addEventListener("click", () => switchTab(link));
+        });
 
-    function switchTab(clickedLink) {
-        const tabId = clickedLink.dataset.tab;
-        tabLinks.forEach(link => link.classList.remove('active'));
-        clickedLink.classList.add('active');
-        tabContents.forEach(content => content.classList.toggle('active', content.id === tabId));
-        if (tabId === 'testing') {
-            overlayCanvas.style.display = 'block';
-            if (!testInterval) testInterval = setInterval(processFrameForTest, 250);
-        } else {
-            overlayCanvas.style.display = 'none';
+        function switchTab(clickedLink) {
+          const tabId = clickedLink.dataset.tab;
+          tabLinks.forEach((link) => link.classList.remove("active"));
+          clickedLink.classList.add("active");
+          tabContents.forEach((content) =>
+            content.classList.toggle("active", content.id === tabId)
+          );
+          if (tabId === "testing") {
+            overlayCanvas.style.display = "block";
+            if (!testInterval)
+              testInterval = setInterval(processFrameForTest, 250);
+          } else {
+            overlayCanvas.style.display = "none";
             ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            identityBox.classList.add('is-hidden');
-            if (testInterval) { clearInterval(testInterval); testInterval = null; }
+            identityBox.classList.add("is-hidden");
+            if (testInterval) {
+              clearInterval(testInterval);
+              testInterval = null;
+            }
+          }
         }
-    }
 
-    async function processFrameForTest() {
-        if (processingFrame || video.paused || video.ended) return;
-        processingFrame = true;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-        const imageData = tempCanvas.toDataURL('image/jpeg', 0.8);
-        try {
-            // Geolocation is disabled, send default values
+        async function processFrameForTest() {
+          if (processingFrame || video.paused || video.ended) return;
+          processingFrame = true;
+
+          const tempCtx = tempCanvas.getContext("2d");
+          tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+          const imageData = tempCanvas.toDataURL("image/jpeg", 0.8);
+
+          try {
             const coords = { latitude: 0.0, longitude: 0.0 };
-            const response = await fetch('/recognize_frame', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: imageData, latitude: coords.latitude, longitude: coords.longitude })
+            const response = await fetch("/recognize_frame", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                image: imageData,
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+              }),
             });
-            if (!response.ok) throw new Error(`Server error: ${response.status}`);
-            const results = await response.json();
-            drawTestResults(results);
-        } catch (error) {
-            console.error("Error during frame processing:", error);
-            showToast(error.message, 'error');
-        } finally {
-            processingFrame = false;
-        }
-    }
 
-    function drawTestResults(results) {
-        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        results.forEach(face => {
+            if (!response.ok)
+              throw new Error(`Server error: ${response.status}`);
+
+            const data = await response.json();
+            const { status, message, results } = data;
+
+            // Tampilkan hasil ke canvas
+            drawTestResults(results);
+
+            // Tampilkan notifikasi hanya jika ada data
+            const berhasil = parseInt(
+              message.match(/(\d+)\s*berhasil/)?.[1] || "0"
+            );
+            const gagal = parseInt(message.match(/(\d+)\s*gagal/)?.[1] || "0");
+
+            if (results.length > 0) {
+              const alreadyAbsenCount = results.filter(
+                (p) => p.status_kirim === "sudah_absen"
+              ).length;
+
+              if (berhasil > 0 && gagal === 0 && alreadyAbsenCount === 0) {
+                showToast(message, "success");
+              } else if (berhasil > 0 && gagal > 0) {
+                showToast(message, "warn"); // sebagian berhasil
+              } else if (berhasil === 0 && gagal > 0) {
+                showToast(message, "error"); // semua gagal kirim
+              } else if (alreadyAbsenCount > 0) {
+                showToast("Anda sudah absen sebelumnya.", "info");
+              }
+            }
+          } catch (error) {
+            console.error("Error during frame processing:", error);
+            showToast(error.message, "error");
+          } finally {
+            processingFrame = false;
+          }
+        }
+
+        // function drawTestResults(results) {
+        //     ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        //     results.forEach(face => {
+        //         const [x, y, w, h] = face.box;
+        //         ctx.strokeStyle = '#28a745';
+        //         ctx.lineWidth = 3;
+        //         ctx.strokeRect(x, y, w, h);
+        //         const label = face.name || 'Tidak Dikenal';
+        //         const textPadding = 5;
+        //         const textHeight = 22;
+        //         ctx.font = '16px Poppins';
+        //         const textWidth = ctx.measureText(label).width;
+        //         let labelY = y - textHeight - textPadding;
+        //         if (labelY < 0) labelY = y + textPadding;
+        //         ctx.fillStyle = 'rgba(40, 167, 69, 0.85)';
+        //         ctx.fillRect(x - 1, labelY, textWidth + (textPadding * 2) + 2, textHeight);
+        //         ctx.fillStyle = '#ffffff';
+        //         ctx.fillText(label, x + textPadding, labelY + textHeight - textPadding - 2);
+        //     });
+        //     if (results && results.length > 0) {
+        //         const person = results[0];
+        //         identityName.textContent = person.name || 'Tidak Dikenal';
+        //         identityUnit.textContent = `Unit: ${person.unit || '-'}`;
+        //         identityEmotion.textContent = `Suasana Hati: ${person.emotion || '-'}`;
+        //         identityFatigue.textContent = `Status: ${person.fatigue || '-'}`;
+        //         identityBox.classList.remove('is-hidden');
+        //     } else {
+        //         identityBox.classList.add('is-hidden');
+        //     }
+        // }
+
+        function drawTestResults(results) {
+          ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+          // 1. Gambar semua kotak untuk setiap wajah yang terdeteksi
+          results.forEach((face) => {
+            // console.log("Face data:", face); // Debugging log
             const [x, y, w, h] = face.box;
-            ctx.strokeStyle = '#28a745';
+            const isRecognized = face.name && face.name !== "Tidak Dikenal";
+
+            // Ganti warna kotak jika dikenali
+            ctx.strokeStyle = isRecognized ? "#dc3545" : "#28a745"; // Hijau jika dikenali, Merah jika tidak
             ctx.lineWidth = 3;
             ctx.strokeRect(x, y, w, h);
-            const label = face.name || 'Tidak Dikenal';
+
+            const label = face.nama || "Tidak Dikenal"; // Sesuaikan dengan key dari backend ('nama' atau 'name')
             const textPadding = 5;
             const textHeight = 22;
-            ctx.font = '16px Poppins';
+            ctx.font = "16px Poppins";
             const textWidth = ctx.measureText(label).width;
             let labelY = y - textHeight - textPadding;
             if (labelY < 0) labelY = y + textPadding;
-            ctx.fillStyle = 'rgba(40, 167, 69, 0.85)';
-            ctx.fillRect(x - 1, labelY, textWidth + (textPadding * 2) + 2, textHeight);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(label, x + textPadding, labelY + textHeight - textPadding - 2);
-        });
-        if (results && results.length > 0) {
-            const person = results[0];
-            identityName.textContent = person.name || 'Tidak Dikenal';
-            identityUnit.textContent = `Unit: ${person.unit || '-'}`;
-            identityEmotion.textContent = `Suasana Hati: ${person.emotion || '-'}`;
-            identityFatigue.textContent = `Status: ${person.fatigue || '-'}`;
-            identityBox.classList.remove('is-hidden');
-        } else {
-            identityBox.classList.add('is-hidden');
-        }
-    }
 
-    searchInput.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        for (let option of userDropdown.options) {
+            ctx.fillStyle = isRecognized
+              ? "rgba(40, 167, 69, 0.85)"
+              : "rgba(220, 53, 69, 0.85)";
+            ctx.fillRect(
+              x - 1,
+              labelY,
+              textWidth + textPadding * 2 + 2,
+              textHeight
+            );
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(
+              label,
+              x + textPadding,
+              labelY + textHeight - textPadding - 2
+            );
+          });
+
+          // 2. Cari orang PERTAMA YANG DIKENALI untuk ditampilkan di kartu identitas
+          const recognizedPerson = results.find((p) => p.guid);
+
+          if (recognizedPerson) {
+            // Jika ada yang dikenali, tampilkan datanya
+            identityName.textContent = recognizedPerson.nama || "Tidak Dikenal"; // Sesuaikan dengan key dari backend
+            identityUnit.textContent = `Unit: ${recognizedPerson.unit || "-"}`;
+            identityEmotion.textContent = `Suasana Hati: ${
+              recognizedPerson.mood || "-"
+            }`;
+            identityFatigue.textContent = `Keletihan: ${
+              recognizedPerson.keletihan !== undefined
+                ? recognizedPerson.keletihan + "%"
+                : "-"
+            }`;
+            const statusKirim = recognizedPerson.status_kirim || "-";
+            document.getElementById(
+              "identity-status-kirim"
+            ).textContent = `Absen: ${statusKirim}`;
+            identityBox.classList.remove("is-hidden");
+          } else {
+            // Jika tidak ada SATUPUN yang dikenali, sembunyikan kotak
+            identityBox.classList.add("is-hidden");
+          }
+        }
+
+        searchInput.addEventListener("input", function () {
+          const searchTerm = this.value.toLowerCase();
+          for (let option of userDropdown.options) {
             if (option.value === "") continue;
-            option.style.display = option.textContent.toLowerCase().includes(searchTerm) ? '' : 'none';
-        }
-        userDropdown.selectedIndex = 0;
-        captureButton.disabled = true;
-        galleryArea.classList.add('is-hidden');
-    });
-    
-    userDropdown.addEventListener('change', function() {
-        captureButton.disabled = !this.value;
-        galleryArea.classList.toggle('is-hidden', !this.value);
-        if (this.value) thumbnailGallery.innerHTML = '';
-    });
+            option.style.display = option.textContent
+              .toLowerCase()
+              .includes(searchTerm)
+              ? ""
+              : "none";
+          }
+          userDropdown.selectedIndex = 0;
+          captureButton.disabled = true;
+          galleryArea.classList.add("is-hidden");
+        });
 
-    captureButton.addEventListener('click', function() {
-        const selectedOption = userDropdown.options[userDropdown.selectedIndex];
-        if (!selectedOption.value) return;
-        const guid = selectedOption.value;
-        const name = selectedOption.getAttribute('data-name');
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-        const imageData = tempCanvas.toDataURL('image/jpeg');
-        const img = document.createElement('img');
-        img.src = imageData;
-        img.classList.add('thumbnail');
-        thumbnailGallery.appendChild(img);
-        fetch('/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guid, name, image: imageData })})
-        .then(res => res.json()).then(data => showToast(data.message, data.status === 'success' ? 'success' : 'error')).catch(err => console.error('Error:', err));
-    });
-    
-    trainButton.addEventListener('click', function() {
-        loadingOverlay.classList.remove('is-hidden');
-        trainButton.disabled = true;
-        loadingText.textContent = 'Menghitung estimasi waktu...';
-        countdownTimer.textContent = '';
-        if (countdownInterval) clearInterval(countdownInterval);
+        userDropdown.addEventListener("change", function () {
+          captureButton.disabled = !this.value;
+          galleryArea.classList.toggle("is-hidden", !this.value);
+          if (this.value) thumbnailGallery.innerHTML = "";
+        });
 
-        fetch('/get_training_stats')
-        .then(response => response.json())
-        .then(stats => {
-            if (stats.image_count === 0) {
-                showToast('Tidak ada gambar di dataset untuk dilatih.', 'error');
-                throw new Error('No images to train.');
-            }
-            const AVG_SECONDS_PER_IMAGE = 1.5;
-            let estimatedSeconds = Math.ceil(stats.image_count * AVG_SECONDS_PER_IMAGE);
-            loadingText.textContent = `Sedang melatih ${stats.image_count} gambar...`;
-            countdownInterval = setInterval(() => {
+        captureButton.addEventListener("click", function () {
+          const selectedOption =
+            userDropdown.options[userDropdown.selectedIndex];
+          if (!selectedOption.value) return;
+          const guid = selectedOption.value;
+          const name = selectedOption.getAttribute("data-name");
+          const tempCtx = tempCanvas.getContext("2d");
+          tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+          const imageData = tempCanvas.toDataURL("image/jpeg");
+          const img = document.createElement("img");
+          img.src = imageData;
+          img.classList.add("thumbnail");
+          thumbnailGallery.appendChild(img);
+          fetch("/capture", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ guid, name, image: imageData }),
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              const customMessage =
+                data.status === "success"
+                  ? "✅ Gambar berhasil disimpan dan dikirim ke server."
+                  : `❌ Gagal menyimpan gambar: ${data.message}`;
+              showToast(customMessage, data.status);
+            })
+            .catch((err) => console.error("Error:", err));
+        });
+
+        trainButton.addEventListener("click", function () {
+          loadingOverlay.classList.remove("is-hidden");
+          trainButton.disabled = true;
+          loadingText.textContent = "Menghitung estimasi waktu...";
+          countdownTimer.textContent = "";
+          if (countdownInterval) clearInterval(countdownInterval);
+
+          fetch("/get_training_stats")
+            .then((response) => response.json())
+            .then((stats) => {
+              if (stats.image_count === 0) {
+                showToast(
+                  "Tidak ada gambar di dataset untuk dilatih.",
+                  "error"
+                );
+                throw new Error("No images to train.");
+              }
+              const AVG_SECONDS_PER_IMAGE = 1.5;
+              let estimatedSeconds = Math.ceil(
+                stats.image_count * AVG_SECONDS_PER_IMAGE
+              );
+              loadingText.textContent = `Sedang melatih ${stats.image_count} gambar...`;
+              countdownInterval = setInterval(() => {
                 if (estimatedSeconds <= 0) {
-                    countdownTimer.textContent = 'Hampir selesai...';
-                    clearInterval(countdownInterval);
-                    return;
+                  countdownTimer.textContent = "Hampir selesai...";
+                  clearInterval(countdownInterval);
+                  return;
                 }
                 const minutes = Math.floor(estimatedSeconds / 60);
                 const seconds = estimatedSeconds % 60;
                 countdownTimer.textContent = `Estimasi waktu: ${minutes} menit ${seconds} detik`;
                 estimatedSeconds--;
-            }, 1000);
-            return fetch('/train');
-        })
-        .then(response => {
-            if (!response.ok) return response.json().then(err => Promise.reject(err));
-            return response.json();
-        })
-        .then(data => {
-            showToast(data.message, 'success');
-        })
-        .catch(error => {
-            if (error.message !== 'No images to train.') {
-                console.error('Training Error:', error);
-                showToast(error.message || 'Terjadi kesalahan pada server.', 'error');
-            }
-        })
-        .finally(() => {
-            if (countdownInterval) clearInterval(countdownInterval);
-            loadingOverlay.classList.add('is-hidden');
-            trainButton.disabled = false;
+              }, 1000);
+              return fetch("/train");
+            })
+            .then((response) => {
+              if (!response.ok)
+                return response.json().then((err) => Promise.reject(err));
+              return response.json();
+            })
+            .then((data) => {
+              showToast(data.message, "success");
+            })
+            .catch((error) => {
+              if (error.message !== "No images to train.") {
+                console.error("Training Error:", error);
+                showToast(
+                  error.message || "Terjadi kesalahan pada server.",
+                  "error"
+                );
+              }
+            })
+            .finally(() => {
+              if (countdownInterval) clearInterval(countdownInterval);
+              loadingOverlay.classList.add("is-hidden");
+              trainButton.disabled = false;
+            });
         });
-    });
-});
+      });
 
-function showToast(message, type = 'success') {
-    const toast = document.getElementById('toast');
-    toast.textContent = message;
-    toast.className = 'show ' + type;
-    setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 3000);
-}
-</script>
-</body>
+      function showToast(message, type = "success") {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.className = "show " + type;
+        setTimeout(() => {
+          toast.className = toast.className.replace("show", "");
+        }, 3000);
+      }
+    </script>
+  </body>
 </html>
